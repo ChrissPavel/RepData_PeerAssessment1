@@ -1,25 +1,131 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
+title: "PA1_template.Rmd"
+author: "Christian Llano"
+date: "Friday, June 12, 2015"
+output:
   html_document:
-    keep_md: true
+    keep_md: yes
+  pdf_document: default
 ---
 
 
-## Loading and preprocessing the data
+##Loading and preprocessing the data
 
-
+I read data using Rstudio option, import data sets.
+```{r,echo=TRUE}
+activity <- read.csv("activity.csv")
+#changing to date type
+activity$date<-as.Date(activity$date,"%Y-%m-%d")
+head(activity)
+```
 
 ## What is mean total number of steps taken per day?
 
 
+```{r,echo=TRUE}
+#1. Calculate the total number of steps taken per day
+aggregate(steps~date,data=activity,sum,na.rm=T)->x
+head(x)
+
+#2 Here a boxplot of x 
+barplot(x[,2])
+
+#3 Finding mean total number of steps.
+
+mean(activity$steps,na.rm=TRUE)
+#3 Calculating mean and median of the total number of steps taken per day
+aggregate(steps~date,data=activity,function(x) c(Mean=mean(x,na.rm=T),Median=median(x,na.rm=T)))
+
+
+#4 Mean of steps by interval
+as.data.frame(aggregate(steps~interval,data=activity,mean,na.rm=TRUE))->x1
+
+#5 Next we obtain the maximum of mean steps by interval
+x1[which.max(x1$steps),]
+```
+
+We seee that median is 0 in all cases, this happens because most of the steps during intervals resulting to be 0
 
 ## What is the average daily activity pattern?
 
+Using the x1 created before, where we summarize mean of steps by intervals
+
+```{r,echo=TRUE}
+plot(x1,type="l")
+```
 
 
 ## Imputing missing values
 
 
+```{r,echo=TRUE}
+
+#How many NA values are by column on activity
+apply(activity,2,function(x)sum(is.na(x)))
+
+#Looking for mean according to date
+x2<-aggregate(steps~date,data=activity,mean,na.rm=TRUE)
+
+#Looking for mean according to intervals
+x3<-aggregate(steps~interval,data=activity,mean,na.rm=TRUE)
+```
+
+I decided to replace NA values by the mean of its interval as showing next:
+
+```{r,echo=TRUE}
+#merging activity and x3 by the column interval.
+merge(activity,x3,by = "interval")->data1
+head(data1)
+
+#copying values of means by interval to its corresponding NA values
+data1$steps.x[is.na(data1$steps.x)]<-data1$steps.y[is.na(data1$steps.x)]
+
+#ordering and looking to first cases
+data1<-data1[order(data1$date,data1$interval),]
+data1$steps.y<-NULL
+names(data1)[2]<-"steps"
+head(data1)
+
+
+#total steps, mean and median by day on data1
+
+table2<-aggregate(steps~date,data=data1,sum)
+barplot(table2[,2])
+hist(table2$steps)
+
+table3<-aggregate(steps~date,data=data1,function(x) c(Sum= sum(x),Mean=mean(x),Median=median(x)))
+head(table3)
+
+```
+
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r,echo=TRUE}
+
+#Creating week according to weekday o weekend on date
+data1$week<-ifelse(weekdays(data1$date)%in%c("sábado","domingo"),"weekend","weekday")
+head(data1)
+table4<-aggregate(steps~interval+week,data=data1,mean)
+head(table4)
+levels(as.factor(as.character(data1$interval2)))->xlab
+```
+
+Now I plot using ggplot2
+```{r,echo=TRUE}
+### Graphics
+
+library(ggplot2)
+
+ggplot(table4,aes(interval,steps))->qpl1
+
+summary(qpl1)
+
+qpl1+
+    geom_line()+
+    facet_grid(week~.)+
+    xlab("Interval")+
+    ylab("Number of steps")
+```
+
+We can note there is a remarkable difference onpatterns of steps, in intervals between 10:00 to 20:00 
+
